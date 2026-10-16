@@ -1,3 +1,58 @@
+# Facturen — factuurprogramma met klantendatabase
+
+Een webapplicatie om klanten te beheren en facturen te maken, gebouwd op
+Cloudflare Workers met een D1-database. Inloggen gaat via de meegeleverde
+[OpenAuth](https://openauth.js.org/) server (e-mail + wachtwoord); elke
+gebruiker ziet alleen zijn eigen klanten en facturen.
+
+## Functies
+
+- **Klantendatabase**: naam, contactpersoon, e-mail, telefoon, adres, BTW- en
+  KvK-nummer en interne notities. Zoeken op naam, contact, e-mail of plaats.
+  Per klant een overzicht van facturen en het openstaande bedrag.
+- **Facturen**: meerdere regels met aantal, prijs (excl. BTW) en BTW-tarief
+  (21%, 9% of 0%). Subtotaal, BTW per tarief en totaal worden direct berekend.
+- **Automatische factuurnummers**: opeenvolgend per gebruiker, met instelbaar
+  voorvoegsel (bijv. `2026-` → `2026-0001`).
+- **Status**: concept → verzonden → betaald. Verzonden facturen voorbij de
+  vervaldatum worden als *vervallen* gemarkeerd. Alleen concepten kunnen
+  worden gewijzigd of verwijderd.
+- **Dashboard** met openstaand, vervallen en dit jaar betaald bedrag.
+- **Afdrukken / PDF**: nette factuurweergave (`/print/:id`) die je via de
+  afdrukfunctie van de browser als PDF opslaat.
+- **Instellingen**: je bedrijfsgegevens (afzender), IBAN, betalingstermijn en
+  voettekst.
+
+## Structuur
+
+| Bestand | Inhoud |
+| --- | --- |
+| `src/index.ts` | Routing, OpenAuth server en sessie (cookies) |
+| `src/api.ts` | REST API: `/api/customers`, `/api/invoices`, `/api/settings` |
+| `src/invoice-math.ts` | Berekening van regels, BTW en totalen (in centen) |
+| `src/print.ts` | Afdrukbare factuur (HTML) |
+| `src/app.html` | De webinterface (single-page app) |
+| `migrations/0002_create_invoicing_tables.sql` | Tabellen voor klanten, facturen en instellingen |
+
+## Lokaal draaien
+
+```bash
+npm install
+npx wrangler d1 migrations apply AUTH_DB --local
+npm run dev
+```
+
+Open http://localhost:8787, registreer een account en vul de verificatiecode
+in die in de terminal (Worker logs) verschijnt. Stel daarna bij
+**Instellingen** je bedrijfsgegevens in.
+
+Voor productie volg je de setup-stappen hieronder; `npm run deploy` voert de
+migraties automatisch uit op de remote database. Vervang `sendCode` in
+`src/index.ts` door echte e-mailverzending (bijv. Resend) zodat gebruikers hun
+verificatiecode per mail krijgen.
+
+---
+
 # OpenAuth Server
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/templates/tree/main/openauth-template)

@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Facturen</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --surface: #fff; --text: #1a1a1a; --muted: #5b6270; --border: #dde1e6;
+    --primary: #0051c3; --primary-text: #fff; --danger: #c62828; --ok: #1a7f37; --warn: #b26a00;
+    --row-hover: #f0f4fb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --surface: #1d2025; --text: #e8eaed; --muted: #9aa1ad; --border: #33373e;
+      --primary: #4d8ff0; --primary-text: #0b1220; --danger: #ef6b6b; --ok: #4cc06d; --warn: #e0a040;
+      --row-hover: #252a32;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 14px;
+         background: var(--bg); color: var(--text); line-height: 1.45; }
+  nav { background: var(--surface); border-bottom: 1px solid var(--border); }
+  nav .inner { max-width: 1100px; margin: 0 auto; padding: 0 16px; display: flex; align-items: center; gap: 4px;
+               min-height: 56px; flex-wrap: wrap; }
+  nav .brand { font-weight: 700; margin-right: 16px; font-size: 16px; }
+  nav a { color: var(--muted); text-decoration: none; padding: 8px 12px; border-radius: 6px; }
+  nav a.active { color: var(--text); background: var(--bg); font-weight: 600; }
+  nav .spacer { flex: 1; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 22px; margin: 0; }
+  h2 { font-size: 16px; margin: 24px 0 12px; }
+  .head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .stat .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .stat .value { font-size: 22px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .stat .sub { color: var(--muted); font-size: 12px; }
+  .btn { font: inherit; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface);
+         color: var(--text); cursor: pointer; text-decoration: none; display: inline-block; white-space: nowrap; }
+  .btn:hover { border-color: var(--muted); }
+  .btn.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
+  .btn.danger { color: var(--danger); }
+  .btn.small { padding: 4px 10px; font-size: 13px; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  input, select, textarea { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border);
+         border-radius: 6px; padding: 8px 10px; width: 100%; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
+  .filters input { max-width: 280px; } .filters select { width: auto; }
+  textarea { min-height: 70px; resize: vertical; }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  .grid .wide { grid-column: 1 / -1; }
+  .table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tr.link { cursor: pointer; } tr.link:hover td { background: var(--row-hover); }
+  .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600;
+           border: 1px solid currentColor; }
+  .badge.concept { color: var(--muted); } .badge.verzonden { color: var(--primary); }
+  .badge.betaald { color: var(--ok); } .badge.vervallen { color: var(--danger); }
+  .empty { padding: 32px; text-align: center; color: var(--muted); }
+  .lines td { padding: 6px; vertical-align: top; } .lines th { padding: 6px; }
+  .lines input, .lines select, .lines textarea { padding: 6px 8px; }
+  .lines textarea { min-height: 36px; height: 36px; }
+  .lines .c-qty { width: 90px; } .lines .c-price { width: 120px; } .lines .c-vat { width: 90px; }
+  .lines .c-amount { width: 120px; } .lines .c-del { width: 40px; }
+  .totals { margin-left: auto; max-width: 340px; margin-top: 12px; }
+  .totals div { display: flex; justify-content: space-between; padding: 3px 0; font-variant-numeric: tabular-nums; }
+  .totals .grand { border-top: 2px solid var(--text); margin-top: 4px; padding-top: 6px; font-weight: 700; font-size: 16px; }
+  .error { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); padding: 10px 14px;
+           border-radius: 6px; margin-bottom: 14px; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg);
+           padding: 10px 16px; border-radius: 6px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  iframe.preview { width: 100%; height: 1100px; border: 1px solid var(--border); border-radius: 8px; background: #eef0f3; display: block; }
+  .muted { color: var(--muted); }
+  .spaced { margin-top: 20px; }
+  @media (max-width: 640px) {
+    .lines thead { display: none; }
+    .lines tr { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .lines td { border: 0; padding: 0; width: auto !important; }
+    .lines td.c-desc { grid-column: 1 / -1; }
+  }
+</style>
+</head>
+<body>
+<nav>
+  <div class="inner">
+    <span class="brand">Facturen</span>
+    <a href="#/facturen" data-nav="facturen">Facturen</a>
+    <a href="#/klanten" data-nav="klanten">Klanten</a>
+    <a href="#/instellingen" data-nav="instellingen">Instellingen</a>
+    <span class="spacer"></span>
+    <a href="/logout">Uitloggen</a>
+  </div>
+</nav>
+<main id="app"></main>
+<div class="toast" id="toast"></div>
+
+<script>
+const app = document.getElementById("app");
+
+// ---------------------------------------------------------------- helpers
+const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+const money = new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" });
+const fmtMoney = (cents) => money.format((cents || 0) / 100);
+const fmtDate = (iso) => iso ? iso.split("-").reverse().join("-") : "";
+const today = () => new Date().toISOString().slice(0, 10);
+const addDays = (iso, days) => {
+  const d = new Date(iso + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + Number(days || 0));
+  return d.toISOString().slice(0, 10);
+};
+// Accepteert "12,50", "12.50", "1.234,56" en "€ 12".
+function parseEuro(value) {
+  let s = String(value).replace(/[€\s]/g, "");
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  const n = Number(s);
+  return Number.isFinite(n) && s !== "" ? Math.round(n * 100) : NaN;
+}
+const parseNum = (value) => {
+  const s = String(value).trim().replace(",", ".");
+  const n = Number(s);
+  return s !== "" && Number.isFinite(n) ? n : NaN;
+};
+const euroInput = (cents) => cents === "" || cents == null ? "" : (cents / 100).toFixed(2).replace(".", ",");
+
+function isOverdue(inv) {
+  return inv.status === "verzonden" && inv.due_date < today();
+}
+function badge(inv) {
+  if (isOverdue(inv)) return '<span class="badge vervallen">Vervallen</span>';
+  const labels = { concept: "Concept", verzonden: "Verzonden", betaald: "Betaald" };
+  return '<span class="badge ' + inv.status + '">' + labels[inv.status] + "</span>";
+}
+
+function toast(message) {
+  const el = document.getElementById("toast");
+  el.textContent = message;
+  el.classList.add("show");
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => el.classList.remove("show"), 2200);
+}
+
+async function api(path, options = {}) {
+  const res = await fetch("/api" + path, {
+    ...options,
+    headers: { "content-type": "application/json" },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+  if (res.status === 401) { location.href = "/"; throw new Error("Niet ingelogd"); }
+  if (res.status === 204) return null;
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Er ging iets mis");
+  return data;
+}
+
+function formData(form) {
+  return Object.fromEntries(new FormData(form).entries());
+}
+function showError(container, err) {
+  container.innerHTML = '<div class="error">' + esc(err.message || err) + "</div>";
+  container.scrollIntoView({ block: "nearest" });
+}
+
+// ---------------------------------------------------------------- router
+const routes = [
+  [/^\/facturen$/, invoiceList],
+  [/^\/facturen\/nieuw$/, (_, p) => invoiceForm(null, p)],
+  [/^\/facturen\/(\d+)$/, (id) => invoiceDetail(id)],
+  [/^\/facturen\/(\d+)\/bewerken$/, (id) => invoiceForm(id)],
+  [/^\/klanten$/, customerList],
+  [/^\/klanten\/nieuw$/, () => customerForm(null)],
+  [/^\/klanten\/(\d+)$/, (id) => customerForm(id)],
+  [/^\/instellingen$/, settingsForm],
+];
+
+async function route() {
+  const hash = location.hash.slice(1) || "/facturen";
+  const path = hash.split("?")[0];
+  const params = new URLSearchParams(hash.split("?")[1] || "");
+  document.querySelectorAll("nav a[data-nav]").forEach((a) =>
+    a.classList.toggle("active", path.startsWith("/" + a.dataset.nav)));
+  for (const [pattern, view] of routes) {
+    const m = path.match(pattern);
+    if (m) {
+      app.innerHTML = '<div class="muted">Laden…</div>';
+      try { await view(m[1], params); }
+      catch (err) { app.innerHTML = '<div class="error">' + esc(err.message) + "</div>"; }
+      window.scrollTo(0, 0);
+      return;
+    }
+  }
+  location.hash = "#/facturen";
+}
+window.addEventListener("hashchange", route);
+
+// ---------------------------------------------------------------- facturen
+async function invoiceList(_, params) {
+  const all = await api("/invoices");
+  const status = params.get("status") || "";
+  const q = (params.get("q") || "").toLowerCase();
+  const year = today().slice(0, 4);
+
+  const open = all.filter((i) => i.status === "verzonden");
+  const overdue = open.filter(isOverdue);
+  const paidYear = all.filter((i) => i.status === "betaald" && i.issue_date.startsWith(year));
+  const sum = (list) => list.reduce((s, i) => s + i.total, 0);
+
+  const rows = all.filter((i) => {
+    if (status === "vervallen" ? !isOverdue(i) : status && i.status !== status) return false;
+    return !q || i.invoice_number.toLowerCase().includes(q) || i.customer_name.toLowerCase().includes(q);
+  });
+
+  app.innerHTML = `
+    <div class="head">
+      <h1>Facturen</h1>
+      <a class="btn primary" href="#/facturen/nieuw">+ Nieuwe factuur</a>
+    </div>
+    <div class="stats">
+      <div class="card stat"><div class="label">Openstaand</div><div class="value">${fmtMoney(sum(open))}</div>
+        <div class="sub">${open.length} factu${open.length === 1 ? "ur" : "ren"}</div></div>
+      <div class="card stat"><div class="label">Vervallen</div><div class="value" style="color:var(--danger)">${fmtMoney(sum(overdue))}</div>
+        <div class="sub">${overdue.length} factu${overdue.length === 1 ? "ur" : "ren"}</div></div>
+      <div class="card stat"><div class="label">Betaald in ${year}</div><div class="value" style="color:var(--ok)">${fmtMoney(sum(paidYear))}</div>
+        <div class="sub">${paidYear.length} factu${paidYear.length === 1 ? "ur" : "ren"}</div></div>
+    </div>
+    <div class="filters">
+      <input type="search" id="q" placeholder="Zoek op nummer of klant…" value="${esc(params.get("q") || "")}">
+      <select id="status">
+        <option value="">Alle statussen</option>
+        ${["concept", "verzonden", "vervallen", "betaald"].map((s) =>
+          `<option value="${s}" ${s === status ? "selected" : ""}>${s[0].toUpperCase() + s.slice(1)}</option>`).join("")}
+      </select>
+    </div>
+    <div class="table-wrap">
+      ${rows.length ? `<table>
+        <thead><tr><th>Nummer</th><th>Klant</th><th>Datum</th><th>Vervalt</th><th class="num">Bedrag</th><th>Status</th></tr></thead>
+        <tbody>${rows.map((i) => `
+          <tr class="link" data-href="#/facturen/${i.id}">
+            <td><strong>${esc(i.invoice_number)}</strong></td>
+            <td>${esc(i.customer_name)}</td>
+            <td>${fmtDate(i.issue_date)}</td>
+            <td>${fmtDate(i.due_date)}</td>
+            <td class="num">${fmtMoney(i.total)}</td>
+            <td>${badge(i)}</td>
+          </tr>`).join("")}</tbody>
+      </table>` : `<div class="empty">${all.length ? "Geen facturen gevonden met deze filters." :
+        'Nog geen facturen. <a href="#/facturen/nieuw">Maak je eerste factuur</a>.'}</div>`}
+    </div>`;
+
+  const update = () => {
+    const p = new URLSearchParams();
+    const qv = document.getElementById("q").value.trim();
+    const sv = document.getElementById("status").value;
+    if (qv) p.set("q", qv);
+    if (sv) p.set("status", sv);
+    history.replaceState(null, "", "#/facturen" + (p.toString() ? "?" + p : ""));
+    invoiceList(null, p).then(() => {
+      const input = document.getElementById("q");
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    });
+  };
+  let timer;
+  document.getElementById("q").addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(update, 250); });
+  document.getElementById("status").addEventListener("change", update);
+  bindRowLinks();
+}
+
+function bindRowLinks() {
+  app.querySelectorAll("tr.link").forEach((tr) =>
+    tr.addEventListener("click", () => { location.hash = tr.dataset.href; }));
+}
+
+async function invoiceDetail(id) {
+  const inv = await api("/invoices/" + id);
+  const isConcept = inv.status === "concept";
+  app.innerHTML = `
+    <div class="head">
+      <div>
+        <h1>Factuur ${esc(inv.invoice_number)} ${badge(inv)}</h1>
+        <div class="muted">${esc(inv.customer_name)} · ${fmtMoney(inv.total)} · vervalt ${fmtDate(inv.due_date)}</div>
+      </div>
+      <div class="actions">
+        <a class="btn" href="#/facturen">Terug</a>
+        ${isConcept ? `<a class="btn" href="#/facturen/${inv.id}/bewerken">Bewerken</a>` : ""}
+        <a class="btn" href="/print/${inv.id}" target="_blank">Afdrukken / PDF</a>
+        ${inv.status !== "verzonden" ? `<button class="btn primary" data-status="verzonden">
+            ${inv.status === "betaald" ? "Terug naar openstaand" : "Markeer als verzonden"}</button>` : ""}
+        ${inv.status === "verzonden" ? '<button class="btn primary" data-status="betaald">Markeer als betaald</button>' : ""}
+        ${inv.status === "verzonden" ? '<button class="btn" data-status="concept">Terug naar concept</button>' : ""}
+        ${isConcept ? '<button class="btn danger" id="delete">Verwijderen</button>' : ""}
+      </div>
+    </div>
+    <div id="msg"></div>
+    <iframe class="preview" id="preview" src="/print/${inv.id}" title="Factuurvoorbeeld"></iframe>`;
+  const frame = document.getElementById("preview");
+  frame.addEventListener("load", () => {
+    frame.style.height = frame.contentDocument.body.offsetHeight + 2 + "px";
+  });
+
+  app.querySelectorAll("[data-status]").forEach((btn) => btn.addEventListener("click", async () => {
+    try {
+      await api("/invoices/" + id + "/status", { method: "POST", body: { status: btn.dataset.status } });
+      toast("Status bijgewerkt");
+      invoiceDetail(id);
+    } catch (err) { showError(document.getElementById("msg"), err); }
+  }));
+  const del = document.getElementById("delete");
+  if (del) del.addEventListener("click", async () => {
+    if (!confirm("Factuur " + inv.invoice_number + " verwijderen?")) return;
+    try {
+      await api("/invoices/" + id, { method: "DELETE" });
+      toast("Factuur verwijderd");
+      location.hash = "#/facturen";
+    } catch (err) { showError(document.getElementById("msg"), err); }
+  });
+}
+
+async function invoiceForm(id, params) {
+  const [customers, settings, inv] = await Promise.all([
+    api("/customers"), api("/settings"), id ? api("/invoices/" + id) : null,
+  ]);
+  if (!customers.length) {
+    app.innerHTML = `<div class="card empty">Voeg eerst een klant toe voordat je een factuur maakt.<br><br>
+      <a class="btn primary" href="#/klanten/nieuw">+ Nieuwe klant</a></div>`;
+    return;
+  }
+  const issue = inv ? inv.issue_date : today();
+  const preselect = inv ? inv.customer_id : Number(params && params.get("klant")) || "";
+  const items = inv ? inv.items : [{ description: "", quantity: 1, unit_price: "", vat_rate: 21 }];
+
+  app.innerHTML = `
+    <div class="head">
+      <h1>${inv ? "Factuur " + esc(inv.invoice_number) + " bewerken" : "Nieuwe factuur"}</h1>
+      <a class="btn" href="${inv ? "#/facturen/" + inv.id : "#/facturen"}">Annuleren</a>
+    </div>
+    <form id="form" class="card" novalidate>
+      <div id="msg"></div>
+      <div class="grid">
+        <div><label for="customer_id">Klant</label>
+          <select id="customer_id" name="customer_id" required>
+            <option value="">Kies een klant…</option>
+            ${customers.map((c) => `<option value="${c.id}" ${c.id === preselect ? "selected" : ""}>${esc(c.name)}</option>`).join("")}
+          </select></div>
+        <div><label for="issue_date">Factuurdatum</label>
+          <input type="date" id="issue_date" name="issue_date" value="${issue}" required></div>
+        <div><label for="due_date">Vervaldatum</label>
+          <input type="date" id="due_date" name="due_date"
+            value="${inv ? inv.due_date : addDays(issue, settings.payment_term_days)}" required></div>
+      </div>
+      ${inv ? "" : `<p class="muted">Factuurnummer wordt automatisch toegekend:
+        <strong>${esc(settings.invoice_prefix + String(settings.next_invoice_number).padStart(4, "0"))}</strong></p>`}
+
+      <h2>Factuurregels</h2>
+      <div class="table-wrap">
+        <table class="lines">
+          <thead><tr><th>Omschrijving</th><th class="c-qty">Aantal</th><th class="c-price">Prijs (excl.)</th>
+            <th class="c-vat">BTW</th><th class="c-amount num">Bedrag</th><th class="c-del"></th></tr></thead>
+          <tbody id="lines"></tbody>
+        </table>
+      </div>
+      <div class="spaced"><button type="button" class="btn small" id="add-line">+ Regel toevoegen</button></div>
+
+      <div class="totals" id="totals"></div>
+
+      <div class="spaced"><label for="notes">Opmerkingen (verschijnt op de factuur)</label>
+        <textarea id="notes" name="notes">${esc(inv ? inv.notes : "")}</textarea></div>
+
+      <div class="actions spaced"><button class="btn primary" type="submit">Opslaan</button></div>
+    </form>`;
+
+  const tbody = document.getElementById("lines");
+  const vatOptions = (rate) => [21, 9, 0].map((r) =>
+    `<option value="${r}" ${Number(rate) === r ? "selected" : ""}>${r}%</option>`).join("") +
+    ([21, 9, 0].includes(Number(rate)) ? "" : `<option value="${rate}" selected>${rate}%</option>`);
+
+  function addLine(item) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="c-desc"><textarea name="description" rows="1" placeholder="Omschrijving">${esc(item.description)}</textarea></td>
+      <td class="c-qty"><input name="quantity" inputmode="decimal" value="${esc(String(item.quantity).replace(".", ","))}" aria-label="Aantal"></td>
+      <td class="c-price"><input name="unit_price" inputmode="decimal" placeholder="0,00" value="${euroInput(item.unit_price)}" aria-label="Prijs"></td>
+      <td class="c-vat"><select name="vat_rate" aria-label="BTW">${vatOptions(item.vat_rate)}</select></td>
+      <td class="c-amount num" data-amount></td>
+      <td class="c-del"><button type="button" class="btn small danger" title="Regel verwijderen" aria-label="Regel verwijderen">×</button></td>`;
+    tr.querySelector("button").addEventListener("click", () => {
+      if (tbody.children.length > 1) { tr.remove(); recalc(); }
+    });
+    tbody.appendChild(tr);
+  }
+
+  function readLines() {
+    return [...tbody.children].map((tr) => ({
+      description: tr.querySelector("[name=description]").value.trim(),
+      quantity: parseNum(tr.querySelector("[name=quantity]").value),
+      unit_price: parseEuro(tr.querySelector("[name=unit_price]").value),
+      vat_rate: Number(tr.querySelector("[name=vat_rate]").value),
+    }));
+  }
+
+  function recalc() {
+    const lines = readLines();
+    const bases = new Map();
+    let subtotal = 0;
+    [...tbody.children].forEach((tr, i) => {
+      const l = lines[i];
+      const amount = Number.isNaN(l.quantity) || Number.isNaN(l.unit_price) ? null : Math.round(l.quantity * l.unit_price);
+      tr.querySelector("[data-amount]").textContent = amount === null ? "–" : fmtMoney(amount);
+      if (amount !== null) {
+        subtotal += amount;
+        bases.set(l.vat_rate, (bases.get(l.vat_rate) || 0) + amount);
+      }
+    });
+    let vat = 0;
+    const vatRows = [...bases.entries()].sort((a, b) => b[0] - a[0]).map(([rate, base]) => {
+      const amount = Math.round(base * rate / 100);
+      vat += amount;
+      return `<div><span>BTW ${rate}% over ${fmtMoney(base)}</span><span>${fmtMoney(amount)}</span></div>`;
+    }).join("");
+    document.getElementById("totals").innerHTML =
+      `<div><span>Subtotaal</span><span>${fmtMoney(subtotal)}</span></div>${vatRows}
+       <div class="grand"><span>Totaal</span><span>${fmtMoney(subtotal + vat)}</span></div>`;
+  }
+
+  items.forEach(addLine);
+  recalc();
+  tbody.addEventListener("input", recalc);
+  tbody.addEventListener("change", recalc);
+  document.getElementById("add-line").addEventListener("click", () => {
+    const last = readLines().at(-1);
+    addLine({ description: "", quantity: 1, unit_price: "", vat_rate: last ? last.vat_rate : 21 });
+    tbody.lastElementChild.querySelector("textarea").focus();
+  });
+  document.getElementById("issue_date").addEventListener("change", (e) => {
+    if (!inv && e.target.value) document.getElementById("due_date").value = addDays(e.target.value, settings.payment_term_days);
+  });
+
+  document.getElementById("form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById("msg");
+    const f = formData(e.target);
+    const lines = readLines().filter((l) => l.description || !Number.isNaN(l.unit_price));
+    const bad = lines.findIndex((l) => !l.description || Number.isNaN(l.quantity) || Number.isNaN(l.unit_price));
+    if (!f.customer_id) return showError(msg, "Kies een klant");
+    if (!lines.length) return showError(msg, "Voeg minimaal één factuurregel toe");
+    if (bad >= 0) return showError(msg, "Regel " + (bad + 1) + ": vul omschrijving, aantal en prijs correct in");
+    const body = {
+      customer_id: Number(f.customer_id), issue_date: f.issue_date, due_date: f.due_date,
+      notes: f.notes, items: lines,
+    };
+    const btn = e.target.querySelector("[type=submit]");
+    btn.disabled = true;
+    try {
+      const saved = await api(inv ? "/invoices/" + inv.id : "/invoices", { method: inv ? "PUT" : "POST", body });
+      toast("Factuur " + saved.invoice_number + " opgeslagen");
+      location.hash = "#/facturen/" + saved.id;
+    } catch (err) { showError(msg, err); btn.disabled = false; }
+  });
+}
+
+// ---------------------------------------------------------------- klanten
+async function customerList(_, params) {
+  const q = params.get("q") || "";
+  const customers = await api("/customers" + (q ? "?q=" + encodeURIComponent(q) : ""));
+  app.innerHTML = `
+    <div class="head">
+      <h1>Klanten</h1>
+      <a class="btn primary" href="#/klanten/nieuw">+ Nieuwe klant</a>
+    </div>
+    <div class="filters"><input type="search" id="q" placeholder="Zoek op naam, contact, e-mail of plaats…" value="${esc(q)}"></div>
+    <div class="table-wrap">
+      ${customers.length ? `<table>
+        <thead><tr><th>Naam</th><th>Contactpersoon</th><th>E-mail</th><th>Plaats</th>
+          <th class="num">Facturen</th><th class="num">Openstaand</th></tr></thead>
+        <tbody>${customers.map((c) => `
+          <tr class="link" data-href="#/klanten/${c.id}">
+            <td><strong>${esc(c.name)}</strong></td><td>${esc(c.contact_person)}</td>
+            <td>${esc(c.email)}</td><td>${esc(c.city)}</td>
+            <td class="num">${c.invoice_count}</td><td class="num">${fmtMoney(c.open_amount)}</td>
+          </tr>`).join("")}</tbody>
+      </table>` : `<div class="empty">${q ? "Geen klanten gevonden." :
+        'Nog geen klanten. <a href="#/klanten/nieuw">Voeg je eerste klant toe</a>.'}</div>`}
+    </div>`;
+  let timer;
+  document.getElementById("q").addEventListener("input", (e) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const p = new URLSearchParams();
+      if (e.target.value.trim()) p.set("q", e.target.value.trim());
+      history.replaceState(null, "", "#/klanten" + (p.toString() ? "?" + p : ""));
+      customerList(null, p).then(() => {
+        const input = document.getElementById("q");
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      });
+    }, 250);
+  });
+  bindRowLinks();
+}
+
+const CUSTOMER_FIELDS = [
+  ["name", "Bedrijfs- of klantnaam *"], ["contact_person", "Contactpersoon"],
+  ["email", "E-mail", "email"], ["phone", "Telefoon", "tel"],
+  ["address", "Adres"], ["postal_code", "Postcode"], ["city", "Plaats"], ["country", "Land"],
+  ["vat_number", "BTW-nummer"], ["coc_number", "KvK-nummer"],
+];
+
+async function customerForm(id) {
+  const [c, invoices] = id
+    ? await Promise.all([api("/customers/" + id), api("/invoices?customer_id=" + id)])
+    : [{ country: "Nederland" }, []];
+  app.innerHTML = `
+    <div class="head">
+      <h1>${id ? esc(c.name) : "Nieuwe klant"}</h1>
+      <div class="actions">
+        <a class="btn" href="#/klanten">Terug</a>
+        ${id ? `<a class="btn primary" href="#/facturen/nieuw?klant=${c.id}">+ Factuur voor deze klant</a>` : ""}
+      </div>
+    </div>
+    <form id="form" class="card" novalidate>
+      <div id="msg"></div>
+      <div class="grid">
+        ${CUSTOMER_FIELDS.map(([name, label, type]) => `
+          <div><label for="${name}">${label}</label>
+          <input id="${name}" name="${name}" type="${type || "text"}" value="${esc(c[name])}"></div>`).join("")}
+        <div class="wide"><label for="notes">Notities (intern)</label>
+          <textarea id="notes" name="notes">${esc(c.notes)}</textarea></div>
+      </div>
+      <div class="actions spaced">
+        <button class="btn primary" type="submit">Opslaan</button>
+        ${id ? '<button class="btn danger" type="button" id="delete">Klant verwijderen</button>' : ""}
+      </div>
+    </form>
+    ${id ? `<h2>Facturen van deze klant</h2>
+      <div class="table-wrap">${invoices.length ? `<table>
+        <thead><tr><th>Nummer</th><th>Datum</th><th>Vervalt</th><th class="num">Bedrag</th><th>Status</th></tr></thead>
+        <tbody>${invoices.map((i) => `
+          <tr class="link" data-href="#/facturen/${i.id}">
+            <td><strong>${esc(i.invoice_number)}</strong></td><td>${fmtDate(i.issue_date)}</td>
+            <td>${fmtDate(i.due_date)}</td><td class="num">${fmtMoney(i.total)}</td><td>${badge(i)}</td>
+          </tr>`).join("")}</tbody></table>` : '<div class="empty">Nog geen facturen voor deze klant.</div>'}
+      </div>` : ""}`;
+  bindRowLinks();
+
+  document.getElementById("form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById("msg");
+    const body = formData(e.target);
+    if (!body.name.trim()) return showError(msg, "Naam is verplicht");
+    try {
+      const saved = await api(id ? "/customers/" + id : "/customers", { method: id ? "PUT" : "POST", body });
+      toast("Klant opgeslagen");
+      if (id) customerForm(id); else location.hash = "#/klanten/" + saved.id;
+    } catch (err) { showError(msg, err); }
+  });
+  const del = document.getElementById("delete");
+  if (del) del.addEventListener("click", async () => {
+    if (!confirm("Klant " + c.name + " verwijderen?")) return;
+    try {
+      await api("/customers/" + id, { method: "DELETE" });
+      toast("Klant verwijderd");
+      location.hash = "#/klanten";
+    } catch (err) { showError(document.getElementById("msg"), err); }
+  });
+}
+
+// ---------------------------------------------------------------- instellingen
+const SETTINGS_FIELDS = [
+  ["company_name", "Bedrijfsnaam"], ["email", "E-mail", "email"], ["phone", "Telefoon", "tel"],
+  ["address", "Adres"], ["postal_code", "Postcode"], ["city", "Plaats"], ["country", "Land"],
+  ["iban", "IBAN"], ["vat_number", "BTW-identificatienummer"], ["coc_number", "KvK-nummer"],
+];
+
+async function settingsForm() {
+  const s = await api("/settings");
+  app.innerHTML = `
+    <div class="head"><h1>Instellingen</h1></div>
+    <form id="form" class="card" novalidate>
+      <div id="msg"></div>
+      <h2 style="margin-top:0">Bedrijfsgegevens (afzender op de factuur)</h2>
+      <div class="grid">
+        ${SETTINGS_FIELDS.map(([name, label, type]) => `
+          <div><label for="${name}">${label}</label>
+          <input id="${name}" name="${name}" type="${type || "text"}" value="${esc(s[name])}"></div>`).join("")}
+      </div>
+      <h2>Facturering</h2>
+      <div class="grid">
+        <div><label for="invoice_prefix">Voorvoegsel factuurnummer</label>
+          <input id="invoice_prefix" name="invoice_prefix" value="${esc(s.invoice_prefix)}" placeholder="bijv. 2026-"></div>
+        <div><label for="next_invoice_number">Volgend factuurnummer</label>
+          <input id="next_invoice_number" name="next_invoice_number" type="number" min="1" step="1" value="${s.next_invoice_number}"></div>
+        <div><label for="payment_term_days">Betalingstermijn (dagen)</label>
+          <input id="payment_term_days" name="payment_term_days" type="number" min="0" max="365" step="1" value="${s.payment_term_days}"></div>
+        <div class="wide"><label for="footer_text">Voettekst op factuur</label>
+          <textarea id="footer_text" name="footer_text">${esc(s.footer_text)}</textarea></div>
+      </div>
+      <div class="actions spaced"><button class="btn primary" type="submit">Opslaan</button></div>
+    </form>`;
+
+  document.getElementById("form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const body = formData(e.target);
+    body.next_invoice_number = Number(body.next_invoice_number);
+    body.payment_term_days = Number(body.payment_term_days);
+    try {
+      await api("/settings", { method: "PUT", body });
+      toast("Instellingen opgeslagen");
+    } catch (err) { showError(document.getElementById("msg"), err); }
+  });
+}
+
+route();
+</script>
+</body>
+</html>
